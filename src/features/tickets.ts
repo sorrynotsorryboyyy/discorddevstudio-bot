@@ -132,6 +132,11 @@ export async function handleTicketTypeSelect(interaction: StringSelectMenuIntera
     components: [
       new ActionRowBuilder<ButtonBuilder>().addComponents(
         new ButtonBuilder()
+          .setCustomId(CUSTOM_ID.TICKET_MARK_CLIENT)
+          .setLabel("Marquer comme client")
+          .setEmoji("🛒")
+          .setStyle(ButtonStyle.Success),
+        new ButtonBuilder()
           .setCustomId(CUSTOM_ID.TICKET_CLOSE)
           .setLabel("Fermer le ticket")
           .setEmoji("🔒")
@@ -237,4 +242,49 @@ export async function handleTicketClose(interaction: ButtonInteraction) {
   await interaction.editReply({
     embeds: [successEmbed("Ticket fermé. Le transcript a été envoyé dans les logs.")],
   });
+}
+
+export async function handleTicketMarkClient(interaction: ButtonInteraction) {
+  const guild = interaction.guild;
+  const channel = interaction.channel;
+  if (!guild || !channel || !channel.isTextBased() || channel.isDMBased()) return;
+
+  const config = await getServerConfig();
+  const member = interaction.member as GuildMember;
+  const allowed =
+    (config && hasAnyRole(member, [config.roles.moderationId, config.roles.adminId])) ||
+    member.permissions.has(PermissionFlagsBits.Administrator);
+
+  if (!allowed) {
+    await interaction.reply({
+      embeds: [errorEmbed("Seul le staff (Modération/Admin) peut marquer un client.")],
+      flags: MessageFlags.Ephemeral,
+    });
+    return;
+  }
+  if (!config) {
+    await interaction.reply({ embeds: [errorEmbed("Le serveur n'est pas encore configuré.")], flags: MessageFlags.Ephemeral });
+    return;
+  }
+
+  const ticketSnap = await db().collection("tickets").where("channelId", "==", channel.id).limit(1).get();
+  if (ticketSnap.empty) {
+    await interaction.reply({ embeds: [errorEmbed("Ticket introuvable.")], flags: MessageFlags.Ephemeral });
+    return;
+  }
+
+  const ownerId = ticketSnap.docs[0].data().ownerId as string;
+  const ownerMember = await guild.members.fetch(ownerId).catch(() => null);
+  if (!ownerMember) {
+    await interaction.reply({ embeds: [errorEmbed("Ce membre a quitté le serveur.")], flags: MessageFlags.Ephemeral });
+    return;
+  }
+
+  if (ownerMember.roles.cache.has(config.roles.clientId)) {
+    await interaction.reply({ embeds: [successEmbed(`<@${ownerId}> est déjà marqué comme client.`)], flags: MessageFlags.Ephemeral });
+    return;
+  }
+
+  await ownerMember.roles.add(config.roles.clientId);
+  await interaction.reply({ embeds: [successEmbed(`<@${ownerId}> a été marqué comme client 🛒`)] });
 }

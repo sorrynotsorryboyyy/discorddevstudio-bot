@@ -6,6 +6,7 @@ import {
   type ButtonBuilder,
   type ChatInputCommandInteraction,
   type EmbedBuilder,
+  type ForumChannel,
   type Guild,
   type CategoryChannel,
   type OverwriteResolvable,
@@ -16,21 +17,32 @@ import {
 import {
   CAT_ARRIVEE,
   CAT_STUDIO,
+  CAT_DISCUSSION,
   CAT_STAFF,
   CHAN_VERIFICATION,
-  CHAN_PORTFOLIO,
+  CHAN_ANNONCES,
   CHAN_COMMANDE,
   CHAN_AVIS,
   CHAN_LOGS_TICKETS,
+  CHAN_STAFF_DISCUSSION,
+  CHAN_GENERAL,
+  CHAN_IMAGE,
+  CHAN_LASALADE,
+  CHAN_FORUM_AIDE,
+  CATALOGUE_CATEGORIES,
   ROLE_VISITEUR,
   ROLE_MEMBRE,
   ROLE_MODERATION,
   ROLE_ADMIN,
+  ROLE_ANNONCES,
+  ROLE_CLIENT,
+  type CatalogueCategoryKey,
 } from "../lib/config.js";
 import { getServerConfig, updateServerConfig } from "../lib/serverConfig.js";
-import { arrow, brandEmbed, divider, errorEmbed, inviteUrl, joinLines } from "../lib/embeds.js";
+import { arrow, brandEmbed, divider, errorEmbed, inviteUrl, joinLines, sectionTitle } from "../lib/embeds.js";
 import { verificationStartComponents } from "../features/verification.js";
 import { commandeComponents } from "../features/tickets.js";
+import { annoncesToggleComponents } from "../features/annonces.js";
 
 async function ensureRole(
   guild: Guild,
@@ -84,6 +96,25 @@ async function ensureChannel(
     }
   }
   return guild.channels.create({ name, type: ChannelType.GuildText, parent: parentId, permissionOverwrites: overwrites });
+}
+
+async function ensureForumChannel(
+  guild: Guild,
+  storedId: string | undefined,
+  name: string,
+  parentId: string,
+  topic: string,
+  overwrites: OverwriteResolvable[]
+): Promise<ForumChannel> {
+  if (storedId) {
+    const found = await guild.channels.fetch(storedId).catch(() => null);
+    if (found?.type === ChannelType.GuildForum) {
+      await found.permissionOverwrites.set(overwrites).catch(() => {});
+      if (found.parentId !== parentId) await found.setParent(parentId, { lockPermissions: false }).catch(() => {});
+      return found;
+    }
+  }
+  return guild.channels.create({ name, type: ChannelType.GuildForum, parent: parentId, topic, permissionOverwrites: overwrites });
 }
 
 interface ChannelMessagePayload {
@@ -154,9 +185,18 @@ export async function executeSetup(interaction: ChatInputCommandInteraction) {
     permissions: [PermissionFlagsBits.Administrator],
     hoist: true,
   });
+  const annoncesRole = await ensureRole(guild, existingConfig?.roles.annoncesId, ROLE_ANNONCES, { color: 0xfee75c });
+  const clientRole = await ensureRole(guild, existingConfig?.roles.clientId, ROLE_CLIENT, { color: 0xeb459e, hoist: true });
 
   await updateServerConfig({
-    roles: { visiteurId: visiteurRole.id, membreId: membreRole.id, moderationId: moderationRole.id, adminId: adminRole.id },
+    roles: {
+      visiteurId: visiteurRole.id,
+      membreId: membreRole.id,
+      moderationId: moderationRole.id,
+      adminId: adminRole.id,
+      annoncesId: annoncesRole.id,
+      clientId: clientRole.id,
+    },
   });
 
   const botId = me.id;
@@ -209,6 +249,7 @@ export async function executeSetup(interaction: ChatInputCommandInteraction) {
         PermissionFlagsBits.EmbedLinks,
         PermissionFlagsBits.AttachFiles,
         PermissionFlagsBits.ReadMessageHistory,
+        PermissionFlagsBits.ManageMessages,
       ],
     },
   ];
@@ -235,9 +276,123 @@ export async function executeSetup(interaction: ChatInputCommandInteraction) {
     },
   ];
 
+  const discussionOverwrites: OverwriteResolvable[] = [
+    { id: everyoneId, deny: [PermissionFlagsBits.ViewChannel] },
+    {
+      id: membreRole.id,
+      allow: [
+        PermissionFlagsBits.ViewChannel,
+        PermissionFlagsBits.SendMessages,
+        PermissionFlagsBits.ReadMessageHistory,
+        PermissionFlagsBits.EmbedLinks,
+        PermissionFlagsBits.AttachFiles,
+      ],
+    },
+    {
+      id: moderationRole.id,
+      allow: [
+        PermissionFlagsBits.ViewChannel,
+        PermissionFlagsBits.SendMessages,
+        PermissionFlagsBits.ManageMessages,
+        PermissionFlagsBits.ReadMessageHistory,
+        PermissionFlagsBits.EmbedLinks,
+        PermissionFlagsBits.AttachFiles,
+      ],
+    },
+    {
+      id: adminRole.id,
+      allow: [
+        PermissionFlagsBits.ViewChannel,
+        PermissionFlagsBits.SendMessages,
+        PermissionFlagsBits.ManageMessages,
+        PermissionFlagsBits.ReadMessageHistory,
+        PermissionFlagsBits.EmbedLinks,
+        PermissionFlagsBits.AttachFiles,
+      ],
+    },
+    {
+      id: botId,
+      allow: [
+        PermissionFlagsBits.ViewChannel,
+        PermissionFlagsBits.SendMessages,
+        PermissionFlagsBits.EmbedLinks,
+        PermissionFlagsBits.AttachFiles,
+        PermissionFlagsBits.ReadMessageHistory,
+      ],
+    },
+  ];
+  const forumOverwrites: OverwriteResolvable[] = [
+    { id: everyoneId, deny: [PermissionFlagsBits.ViewChannel] },
+    {
+      id: membreRole.id,
+      allow: [
+        PermissionFlagsBits.ViewChannel,
+        PermissionFlagsBits.SendMessages,
+        PermissionFlagsBits.SendMessagesInThreads,
+        PermissionFlagsBits.CreatePublicThreads,
+        PermissionFlagsBits.ReadMessageHistory,
+        PermissionFlagsBits.EmbedLinks,
+        PermissionFlagsBits.AttachFiles,
+      ],
+    },
+    {
+      id: moderationRole.id,
+      allow: [
+        PermissionFlagsBits.ViewChannel,
+        PermissionFlagsBits.SendMessages,
+        PermissionFlagsBits.SendMessagesInThreads,
+        PermissionFlagsBits.CreatePublicThreads,
+        PermissionFlagsBits.ManageThreads,
+        PermissionFlagsBits.ReadMessageHistory,
+        PermissionFlagsBits.EmbedLinks,
+        PermissionFlagsBits.AttachFiles,
+      ],
+    },
+    {
+      id: adminRole.id,
+      allow: [
+        PermissionFlagsBits.ViewChannel,
+        PermissionFlagsBits.SendMessages,
+        PermissionFlagsBits.SendMessagesInThreads,
+        PermissionFlagsBits.CreatePublicThreads,
+        PermissionFlagsBits.ManageThreads,
+        PermissionFlagsBits.ReadMessageHistory,
+        PermissionFlagsBits.EmbedLinks,
+        PermissionFlagsBits.AttachFiles,
+      ],
+    },
+    {
+      id: botId,
+      allow: [
+        PermissionFlagsBits.ViewChannel,
+        PermissionFlagsBits.SendMessages,
+        PermissionFlagsBits.SendMessagesInThreads,
+        PermissionFlagsBits.CreatePublicThreads,
+        PermissionFlagsBits.EmbedLinks,
+        PermissionFlagsBits.AttachFiles,
+        PermissionFlagsBits.ReadMessageHistory,
+      ],
+    },
+  ];
+
   const arriveeCategory = await ensureCategory(guild, existingConfig?.channels.arriveeCategoryId, CAT_ARRIVEE, arriveeOverwrites);
   const studioCategory = await ensureCategory(guild, existingConfig?.channels.studioCategoryId, CAT_STUDIO, studioOverwrites);
+  const discussionCategory = await ensureCategory(
+    guild,
+    existingConfig?.channels.discussionCategoryId,
+    CAT_DISCUSSION,
+    discussionOverwrites
+  );
   const staffCategory = await ensureCategory(guild, existingConfig?.channels.staffCategoryId, CAT_STAFF, staffOverwrites);
+
+  await guild.channels
+    .setPositions([
+      { channel: arriveeCategory, position: 0 },
+      { channel: studioCategory, position: 1 },
+      { channel: discussionCategory, position: 2 },
+      { channel: staffCategory, position: 3 },
+    ])
+    .catch(() => {});
 
   const verificationChannel = await ensureChannel(
     guild,
@@ -246,13 +401,23 @@ export async function executeSetup(interaction: ChatInputCommandInteraction) {
     arriveeCategory.id,
     arriveeOverwrites
   );
-  const portfolioChannel = await ensureChannel(
+  const annoncesChannel = await ensureChannel(
     guild,
-    existingConfig?.channels.portfolioId,
-    CHAN_PORTFOLIO,
+    existingConfig?.channels.annoncesId,
+    CHAN_ANNONCES,
     studioCategory.id,
     studioOverwrites
   );
+  const catalogueChannels = {} as Record<CatalogueCategoryKey, TextChannel>;
+  for (const cat of CATALOGUE_CATEGORIES) {
+    catalogueChannels[cat.key] = await ensureChannel(
+      guild,
+      existingConfig?.channels.catalogueChannels?.[cat.key],
+      cat.channel,
+      studioCategory.id,
+      studioOverwrites
+    );
+  }
   const commandeChannel = await ensureChannel(
     guild,
     existingConfig?.channels.commandeId,
@@ -261,10 +426,56 @@ export async function executeSetup(interaction: ChatInputCommandInteraction) {
     studioOverwrites
   );
   const avisChannel = await ensureChannel(guild, existingConfig?.channels.avisId, CHAN_AVIS, studioCategory.id, studioOverwrites);
+
+  await guild.channels
+    .setPositions([
+      { channel: annoncesChannel, position: 0 },
+      ...CATALOGUE_CATEGORIES.map((cat, i) => ({ channel: catalogueChannels[cat.key], position: i + 1 })),
+      { channel: commandeChannel, position: CATALOGUE_CATEGORIES.length + 1 },
+      { channel: avisChannel, position: CATALOGUE_CATEGORIES.length + 2 },
+    ])
+    .catch(() => {});
+
+  const generalChannel = await ensureChannel(
+    guild,
+    existingConfig?.channels.generalId,
+    CHAN_GENERAL,
+    discussionCategory.id,
+    discussionOverwrites
+  );
+  const imageChannel = await ensureChannel(
+    guild,
+    existingConfig?.channels.imageId,
+    CHAN_IMAGE,
+    discussionCategory.id,
+    discussionOverwrites
+  );
+  const lasaladeChannel = await ensureChannel(
+    guild,
+    existingConfig?.channels.lasaladeId,
+    CHAN_LASALADE,
+    discussionCategory.id,
+    discussionOverwrites
+  );
+  const forumAideChannel = await ensureForumChannel(
+    guild,
+    existingConfig?.channels.forumAideId,
+    CHAN_FORUM_AIDE,
+    discussionCategory.id,
+    "Pose ta question ou demande de l'aide en créant un post ici.",
+    forumOverwrites
+  );
   const logsTicketsChannel = await ensureChannel(
     guild,
     existingConfig?.channels.logsTicketsId,
     CHAN_LOGS_TICKETS,
+    staffCategory.id,
+    staffOverwrites
+  );
+  const staffDiscussionChannel = await ensureChannel(
+    guild,
+    existingConfig?.channels.staffDiscussionId,
+    CHAN_STAFF_DISCUSSION,
     staffCategory.id,
     staffOverwrites
   );
@@ -274,11 +485,18 @@ export async function executeSetup(interaction: ChatInputCommandInteraction) {
       arriveeCategoryId: arriveeCategory.id,
       verificationId: verificationChannel.id,
       studioCategoryId: studioCategory.id,
-      portfolioId: portfolioChannel.id,
+      annoncesId: annoncesChannel.id,
+      catalogueChannels: Object.fromEntries(CATALOGUE_CATEGORIES.map((cat) => [cat.key, catalogueChannels[cat.key].id])),
       commandeId: commandeChannel.id,
       avisId: avisChannel.id,
+      discussionCategoryId: discussionCategory.id,
+      generalId: generalChannel.id,
+      imageId: imageChannel.id,
+      lasaladeId: lasaladeChannel.id,
+      forumAideId: forumAideChannel.id,
       staffCategoryId: staffCategory.id,
       logsTicketsId: logsTicketsChannel.id,
+      staffDiscussionId: staffDiscussionChannel.id,
     },
   });
 
@@ -299,19 +517,41 @@ export async function executeSetup(interaction: ChatInputCommandInteraction) {
     components: verificationStartComponents(),
   }));
 
-  const portfolioMessageId = await ensureChannelMessage(portfolioChannel, storedMessages.portfolioMessageId, () => ({
+  const annoncesMessageId = await ensureChannelMessage(annoncesChannel, storedMessages.annoncesMessageId, () => ({
     embeds: [
       brandEmbed()
-        .setTitle("🎨 Portfolio")
+        .setTitle("📢 Annonces")
         .setDescription(
           joinLines(
-            "Voici les bots que j'ai développés et disponibles à la vente — certains sont exclusifs à ce Discord.",
+            "Les nouveautés du catalogue (nouveaux bots, sorties, promos) sont annoncées ici.",
             "",
-            `➜ Une question sur un bot ? Ouvre un ticket dans <#${commandeChannel.id}>.`
+            "➜ Abonne-toi avec le bouton ci-dessous pour être pingé à chaque nouveauté."
           )
         ),
     ],
+    components: annoncesToggleComponents(),
   }));
+
+  const catalogueMessages = {} as Record<CatalogueCategoryKey, string>;
+  for (const cat of CATALOGUE_CATEGORIES) {
+    catalogueMessages[cat.key] = await ensureChannelMessage(
+      catalogueChannels[cat.key],
+      storedMessages.catalogueMessages?.[cat.key],
+      () => ({
+        embeds: [
+          brandEmbed()
+            .setTitle(`${cat.emoji} ${cat.label}`)
+            .setDescription(
+              joinLines(
+                `Voici les bots ${cat.label} que j'ai développés et disponibles à la vente — certains sont exclusifs à ce Discord.`,
+                "",
+                `➜ Une question sur un bot ? Ouvre un ticket dans <#${commandeChannel.id}>.`
+              )
+            ),
+        ],
+      })
+    );
+  }
 
   const commandeMessageId = await ensureChannelMessage(commandeChannel, storedMessages.commandeMessageId, () => ({
     embeds: [
@@ -320,6 +560,14 @@ export async function executeSetup(interaction: ChatInputCommandInteraction) {
         .setDescription(
           joinLines(
             "Une question, une demande, besoin d'un devis, ou prêt à passer commande ?",
+            "",
+            sectionTitle("Créations sur mesure"),
+            "➜ Bot Discord",
+            "➜ Plugin Minecraft",
+            "➜ Skript Minecraft",
+            "➜ Site web relié à un jeu (boutique...) et à un Discord",
+            "➜ Admin dashboard",
+            "➜ Préconfig Minecraft en français",
             "",
             "➜ Clique sur le bouton ci-dessous pour ouvrir un ticket privé avec le staff."
           )
@@ -342,12 +590,39 @@ export async function executeSetup(interaction: ChatInputCommandInteraction) {
     ],
   }));
 
+  const generalMessageId = await ensureChannelMessage(generalChannel, storedMessages.generalMessageId, () => ({
+    embeds: [brandEmbed().setTitle("💬 Général").setDescription("Discussion libre, présentations, actu du studio...")],
+  }));
+
+  const imageMessageId = await ensureChannelMessage(imageChannel, storedMessages.imageMessageId, () => ({
+    embeds: [brandEmbed().setTitle("🖼️ Image").setDescription("Partage tes screenshots, memes, créations...")],
+  }));
+
+  const lasaladeMessageId = await ensureChannelMessage(lasaladeChannel, storedMessages.lasaladeMessageId, () => ({
+    embeds: [brandEmbed().setTitle("🥗 La Salade").setDescription("Le fourre-tout : parle de ce que tu veux ici.")],
+  }));
+
   const logsTicketsMessageId = await ensureChannelMessage(logsTicketsChannel, storedMessages.logsTicketsMessageId, () => ({
     embeds: [brandEmbed().setTitle("📋 Logs tickets").setDescription("Les transcripts des tickets fermés apparaissent ici.")],
   }));
 
+  const staffDiscussionMessageId = await ensureChannelMessage(staffDiscussionChannel, storedMessages.staffDiscussionMessageId, () => ({
+    embeds: [brandEmbed().setTitle("🗣️ Discussion Staff").setDescription("Salon privé pour discuter entre modérateurs et admins.")],
+  }));
+
   await updateServerConfig({
-    messages: { verificationMessageId, portfolioMessageId, commandeMessageId, avisMessageId, logsTicketsMessageId },
+    messages: {
+      verificationMessageId,
+      annoncesMessageId,
+      catalogueMessages,
+      commandeMessageId,
+      avisMessageId,
+      generalMessageId,
+      imageMessageId,
+      lasaladeMessageId,
+      logsTicketsMessageId,
+      staffDiscussionMessageId,
+    },
   });
 
   const embed = brandEmbed()
@@ -355,10 +630,16 @@ export async function executeSetup(interaction: ChatInputCommandInteraction) {
     .setDescription(
       joinLines(
         arrow("Vérification", `<#${verificationChannel.id}>`),
-        arrow("Portfolio", `<#${portfolioChannel.id}>`),
+        arrow("Annonces", `<#${annoncesChannel.id}>`),
+        ...CATALOGUE_CATEGORIES.map((cat) => arrow(cat.label, `<#${catalogueChannels[cat.key].id}>`)),
         arrow("Passer commande", `<#${commandeChannel.id}>`),
         arrow("Avis clients", `<#${avisChannel.id}>`),
+        arrow("Général", `<#${generalChannel.id}>`),
+        arrow("Image", `<#${imageChannel.id}>`),
+        arrow("La Salade", `<#${lasaladeChannel.id}>`),
+        arrow("Questions/Aide", `<#${forumAideChannel.id}>`),
         arrow("Logs tickets", `<#${logsTicketsChannel.id}>`),
+        arrow("Discussion Staff", `<#${staffDiscussionChannel.id}>`),
         "",
         divider("amber"),
         "⚠️ Vérifie que le rôle du bot est bien positionné **au-dessus** de Admin/Modération/Membre/Visiteur dans Paramètres du serveur → Rôles, sinon la gestion des rôles échouera."

@@ -1,5 +1,6 @@
 import type { GuildMember } from "discord.js";
 import { db } from "./firestore.js";
+import type { CatalogueCategoryKey } from "./config.js";
 
 export interface ServerConfig {
   roles: {
@@ -7,23 +8,37 @@ export interface ServerConfig {
     membreId: string;
     moderationId: string;
     adminId: string;
+    annoncesId: string;
+    clientId: string;
   };
   channels: {
     arriveeCategoryId: string;
     verificationId: string;
     studioCategoryId: string;
-    portfolioId: string;
+    annoncesId: string;
+    catalogueChannels: Partial<Record<CatalogueCategoryKey, string>>;
     commandeId: string;
     avisId: string;
+    discussionCategoryId: string;
+    generalId: string;
+    imageId: string;
+    lasaladeId: string;
+    forumAideId: string;
     staffCategoryId: string;
     logsTicketsId: string;
+    staffDiscussionId: string;
   };
   messages: {
     verificationMessageId?: string;
-    portfolioMessageId?: string;
+    annoncesMessageId?: string;
+    catalogueMessages?: Partial<Record<CatalogueCategoryKey, string>>;
     commandeMessageId?: string;
     avisMessageId?: string;
+    generalMessageId?: string;
+    imageMessageId?: string;
+    lasaladeMessageId?: string;
     logsTicketsMessageId?: string;
+    staffDiscussionMessageId?: string;
   };
 }
 

@@ -4,7 +4,8 @@ import { executeDds } from "./commands/index.js";
 import { handleGuildMemberAdd } from "./events/guildMemberAdd.js";
 import { handleVerifColorClick, handleVerifStart } from "./features/verification.js";
 import { handleReglementAccept } from "./features/reglement.js";
-import { handleTicketClose, handleTicketOpen, handleTicketTypeSelect } from "./features/tickets.js";
+import { handleTicketClose, handleTicketMarkClient, handleTicketOpen, handleTicketTypeSelect } from "./features/tickets.js";
+import { handleAnnoncesToggle } from "./features/annonces.js";
 import { CUSTOM_ID } from "./lib/config.js";
 import { errorEmbed } from "./lib/embeds.js";
 
@@ -44,6 +45,10 @@ client.on(Events.InteractionCreate, async (interaction) => {
         await handleTicketOpen(interaction);
       } else if (interaction.customId === CUSTOM_ID.TICKET_CLOSE) {
         await handleTicketClose(interaction);
+      } else if (interaction.customId === CUSTOM_ID.TICKET_MARK_CLIENT) {
+        await handleTicketMarkClient(interaction);
+      } else if (interaction.customId === CUSTOM_ID.ANNONCES_TOGGLE) {
+        await handleAnnoncesToggle(interaction);
       }
       return;
     }

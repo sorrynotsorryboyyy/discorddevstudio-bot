@@ -1,7 +1,8 @@
 import { SlashCommandBuilder, type ChatInputCommandInteraction } from "discord.js";
 import { executeSetup } from "./setup.js";
 import { executeAvis } from "./avis.js";
-import { executePortfolio } from "./portfolio.js";
+import { executeCatalogue } from "./catalogue.js";
+import { CATALOGUE_CATEGORIES, CATALOGUE_STATUTS } from "../lib/config.js";
 
 export const ddsCommand = new SlashCommandBuilder()
   .setName("dds")
@@ -17,22 +18,35 @@ export const ddsCommand = new SlashCommandBuilder()
   )
   .addSubcommandGroup((group) =>
     group
-      .setName("portfolio")
-      .setDescription("Gère les entrées du portfolio — admin uniquement")
+      .setName("catalogue")
+      .setDescription("Gère le catalogue de bots à vendre — admin uniquement")
       .addSubcommand((sub) =>
         sub
           .setName("add")
-          .setDescription("Ajoute un bot au portfolio")
+          .setDescription("Ajoute un bot au catalogue")
           .addStringOption((opt) => opt.setName("nom").setDescription("Nom du bot").setRequired(true))
+          .addStringOption((opt) =>
+            opt
+              .setName("categorie")
+              .setDescription("Catégorie du bot")
+              .setRequired(true)
+              .addChoices(...CATALOGUE_CATEGORIES.map((cat) => ({ name: cat.label, value: cat.key })))
+          )
           .addStringOption((opt) => opt.setName("description").setDescription("Description du bot").setRequired(true))
           .addStringOption((opt) => opt.setName("prix").setDescription("Prix (ex: 49 €, sur devis...)").setRequired(true))
           .addAttachmentOption((opt) => opt.setName("image").setDescription("Image/aperçu du bot"))
           .addBooleanOption((opt) => opt.setName("exclusif").setDescription("Vendu uniquement sur ce Discord ?"))
+          .addStringOption((opt) =>
+            opt
+              .setName("statut")
+              .setDescription("Statut de vente (par défaut Disponible)")
+              .addChoices(...CATALOGUE_STATUTS.map((s) => ({ name: s.label, value: s.key })))
+          )
       )
       .addSubcommand((sub) =>
         sub
           .setName("edit")
-          .setDescription("Modifie une entrée du portfolio")
+          .setDescription("Modifie une entrée du catalogue")
           .addStringOption((opt) => opt.setName("nom").setDescription("Nom de l'entrée à modifier").setRequired(true))
           .addStringOption((opt) => opt.setName("description").setDescription("Nouvelle description"))
           .addStringOption((opt) => opt.setName("prix").setDescription("Nouveau prix"))
@@ -42,22 +56,32 @@ export const ddsCommand = new SlashCommandBuilder()
             opt
               .setName("statut")
               .setDescription("Statut de vente")
-              .addChoices({ name: "Disponible", value: "disponible" }, { name: "Vendu", value: "vendu" })
+              .addChoices(...CATALOGUE_STATUTS.map((s) => ({ name: s.label, value: s.key })))
           )
       )
       .addSubcommand((sub) =>
         sub
           .setName("remove")
-          .setDescription("Retire une entrée du portfolio")
+          .setDescription("Retire une entrée du catalogue")
           .addStringOption((opt) => opt.setName("nom").setDescription("Nom de l'entrée à retirer").setRequired(true))
       )
-      .addSubcommand((sub) => sub.setName("list").setDescription("Liste toutes les entrées du portfolio"))
+      .addSubcommand((sub) =>
+        sub
+          .setName("list")
+          .setDescription("Liste les entrées du catalogue")
+          .addStringOption((opt) =>
+            opt
+              .setName("categorie")
+              .setDescription("Filtrer par catégorie")
+              .addChoices(...CATALOGUE_CATEGORIES.map((cat) => ({ name: cat.label, value: cat.key })))
+          )
+      )
   );
 
 export async function executeDds(interaction: ChatInputCommandInteraction) {
   const group = interaction.options.getSubcommandGroup(false);
-  if (group === "portfolio") {
-    await executePortfolio(interaction);
+  if (group === "catalogue") {
+    await executeCatalogue(interaction);
     return;
   }
   switch (interaction.options.getSubcommand()) {

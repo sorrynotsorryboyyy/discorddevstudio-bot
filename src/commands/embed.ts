@@ -1,7 +1,7 @@
 import { MessageFlags, PermissionFlagsBits, type ChatInputCommandInteraction, type TextChannel } from "discord.js";
 import { getServerConfig } from "../lib/serverConfig.js";
 import { CATALOGUE_CATEGORIES, type CatalogueCategoryKey } from "../lib/config.js";
-import { brandEmbed, errorEmbed, successEmbed } from "../lib/embeds.js";
+import { arrow, brandEmbed, errorEmbed, joinLines, successEmbed } from "../lib/embeds.js";
 import { postAndPinAnnonce } from "../features/annonces.js";
 
 export async function executeEmbedCreate(interaction: ChatInputCommandInteraction) {
@@ -25,9 +25,12 @@ export async function executeEmbedCreate(interaction: ChatInputCommandInteractio
   const titre = interaction.options.getString("titre", true);
   const description = interaction.options.getString("description", true);
   const salon = interaction.options.getString("salon", true);
+  const prix = interaction.options.getString("prix");
   const image = interaction.options.getAttachment("image");
 
-  const embed = brandEmbed().setTitle(titre).setDescription(description);
+  const embed = brandEmbed()
+    .setTitle(titre)
+    .setDescription(prix ? joinLines(description, "", arrow("Prix", prix)) : description);
   if (image) embed.setImage(image.url);
 
   if (salon === "annonces") {

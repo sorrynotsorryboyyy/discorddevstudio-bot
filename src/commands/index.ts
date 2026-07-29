@@ -96,7 +96,8 @@ export const ddsCommand = new SlashCommandBuilder()
           .addStringOption((opt) =>
             opt.setName("salon").setDescription("Salon de destination").setRequired(true).addChoices(...EMBED_SALON_CHOICES)
           )
-          .addAttachmentOption((opt) => opt.setName("image").setDescription("Image de l'embed"))
+          .addStringOption((opt) => opt.setName("prix").setDescription("Prix (optionnel, ex: 9.99 €)"))
+          .addAttachmentOption((opt) => opt.setName("image").setDescription("Image de couverture (grande image, optionnel)"))
       )
   );
 

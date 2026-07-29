@@ -8,7 +8,7 @@ const SUCCESS_COLOR = 0x22c55e;
 export function brandEmbed(): EmbedBuilder {
   return new EmbedBuilder()
     .setColor(BRAND_COLOR)
-    .setFooter({ text: "Discord Dev Studio" })
+    .setFooter({ text: "InstaScript Studio" })
     .setTimestamp();
 }
 

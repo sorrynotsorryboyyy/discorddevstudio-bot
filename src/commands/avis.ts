@@ -7,13 +7,13 @@ import { arrow, brandEmbed, errorEmbed, joinLines, successEmbed } from "../lib/e
 export async function executeAvis(interaction: ChatInputCommandInteraction) {
   const guild = interaction.guild;
   if (!guild) {
-    await interaction.reply({ embeds: [errorEmbed("Cette commande doit être utilisée depuis le serveur Discord Dev Studio.")], flags: MessageFlags.Ephemeral });
+    await interaction.reply({ embeds: [errorEmbed("Cette commande doit être utilisée depuis le serveur InstaScript Studio.")], flags: MessageFlags.Ephemeral });
     return;
   }
 
   const config = await getServerConfig();
   if (!config) {
-    await interaction.reply({ embeds: [errorEmbed("Le serveur n'est pas encore configuré (`/dds setup` manquant).")], flags: MessageFlags.Ephemeral });
+    await interaction.reply({ embeds: [errorEmbed("Le serveur n'est pas encore configuré (`/is setup` manquant).")], flags: MessageFlags.Ephemeral });
     return;
   }
 

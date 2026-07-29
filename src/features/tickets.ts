@@ -18,7 +18,7 @@ import { getServerConfig, hasAnyRole } from "../lib/serverConfig.js";
 import { CUSTOM_ID, TICKET_TYPES, type TicketTypeKey } from "../lib/config.js";
 import { arrow, brandEmbed, errorEmbed, joinLines, successEmbed } from "../lib/embeds.js";
 
-// Composants du message fixe posté dans #passer-commande par /dds setup.
+// Composants du message fixe posté dans #passer-commande par /is setup.
 export function commandeComponents() {
   return [
     new ActionRowBuilder<ButtonBuilder>().addComponents(
@@ -58,7 +58,7 @@ export async function handleTicketTypeSelect(interaction: StringSelectMenuIntera
   const config = await getServerConfig();
   if (!config) {
     await interaction.editReply({
-      embeds: [errorEmbed("Le serveur n'est pas encore configuré (`/dds setup` manquant).")],
+      embeds: [errorEmbed("Le serveur n'est pas encore configuré (`/is setup` manquant).")],
       components: [],
     });
     return;

@@ -9,7 +9,7 @@ export async function handleReglementAccept(interaction: ButtonInteraction) {
   const config = await getServerConfig();
   if (!config) {
     await interaction.reply({
-      embeds: [errorEmbed("Le serveur n'est pas encore configuré (`/dds setup` manquant).")],
+      embeds: [errorEmbed("Le serveur n'est pas encore configuré (`/is setup` manquant).")],
       flags: MessageFlags.Ephemeral,
     });
     return;
@@ -26,7 +26,7 @@ export async function handleReglementAccept(interaction: ButtonInteraction) {
   await interaction.update({
     embeds: [
       successEmbed(
-        "Bienvenue sur **Discord Dev Studio** ! Tu as maintenant accès aux salons du serveur.",
+        "Bienvenue sur **InstaScript Studio** ! Tu as maintenant accès aux salons du serveur.",
         "🎉 Vérification terminée"
       ),
     ],

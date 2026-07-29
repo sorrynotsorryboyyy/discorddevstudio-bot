@@ -2,11 +2,17 @@ import { SlashCommandBuilder, type ChatInputCommandInteraction } from "discord.j
 import { executeSetup } from "./setup.js";
 import { executeAvis } from "./avis.js";
 import { executeCatalogue } from "./catalogue.js";
+import { executeEmbedCreate } from "./embed.js";
 import { CATALOGUE_CATEGORIES, CATALOGUE_STATUTS } from "../lib/config.js";
 
+const EMBED_SALON_CHOICES = [
+  ...CATALOGUE_CATEGORIES.map((cat) => ({ name: cat.label, value: cat.key as string })),
+  { name: "Annonces", value: "annonces" },
+];
+
 export const ddsCommand = new SlashCommandBuilder()
-  .setName("dds")
-  .setDescription("Discord Dev Studio — configuration et commandes du bot")
+  .setName("is")
+  .setDescription("InstaScript Studio — configuration et commandes du bot")
   .setDMPermission(false)
   .addSubcommand((sub) => sub.setName("setup").setDescription("Configure le serveur (rôles, salons, messages) — admin uniquement"))
   .addSubcommand((sub) =>
@@ -76,12 +82,32 @@ export const ddsCommand = new SlashCommandBuilder()
               .addChoices(...CATALOGUE_CATEGORIES.map((cat) => ({ name: cat.label, value: cat.key })))
           )
       )
+  )
+  .addSubcommandGroup((group) =>
+    group
+      .setName("embed")
+      .setDescription("Poste un embed personnalisé — admin uniquement")
+      .addSubcommand((sub) =>
+        sub
+          .setName("create")
+          .setDescription("Crée et poste un embed personnalisé dans un salon de services ou dans #annonces")
+          .addStringOption((opt) => opt.setName("titre").setDescription("Titre de l'embed").setRequired(true))
+          .addStringOption((opt) => opt.setName("description").setDescription("Contenu de l'embed").setRequired(true))
+          .addStringOption((opt) =>
+            opt.setName("salon").setDescription("Salon de destination").setRequired(true).addChoices(...EMBED_SALON_CHOICES)
+          )
+          .addAttachmentOption((opt) => opt.setName("image").setDescription("Image de l'embed"))
+      )
   );
 
 export async function executeDds(interaction: ChatInputCommandInteraction) {
   const group = interaction.options.getSubcommandGroup(false);
   if (group === "catalogue") {
     await executeCatalogue(interaction);
+    return;
+  }
+  if (group === "embed") {
+    await executeEmbedCreate(interaction);
     return;
   }
   switch (interaction.options.getSubcommand()) {

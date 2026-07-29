@@ -108,12 +108,12 @@ export async function executeCatalogue(interaction: ChatInputCommandInteraction)
     const categorie = interaction.options.getString("categorie", true) as CatalogueCategoryKey;
     const channel = await getCatalogueChannel(interaction, categorie);
     if (!channel) {
-      await interaction.editReply({ embeds: [errorEmbed("Le serveur n'est pas encore configuré (`/dds setup` manquant).")] });
+      await interaction.editReply({ embeds: [errorEmbed("Le serveur n'est pas encore configuré (`/is setup` manquant).")] });
       return;
     }
     const existing = await catalogue.where("name", "==", nom).limit(1).get();
     if (!existing.empty) {
-      await interaction.editReply({ embeds: [errorEmbed(`Une entrée « ${nom} » existe déjà. Utilise \`/dds catalogue edit\`.`)] });
+      await interaction.editReply({ embeds: [errorEmbed(`Une entrée « ${nom} » existe déjà. Utilise \`/is catalogue edit\`.`)] });
       return;
     }
     const entry: CatalogueEntry = {
@@ -155,7 +155,7 @@ export async function executeCatalogue(interaction: ChatInputCommandInteraction)
   if (sub === "edit") {
     if (!channel) {
       await interaction.editReply({
-        embeds: [errorEmbed("Le salon de cette catégorie est introuvable (`/dds setup` manquant ou salon supprimé).")],
+        embeds: [errorEmbed("Le salon de cette catégorie est introuvable (`/is setup` manquant ou salon supprimé).")],
       });
       return;
     }

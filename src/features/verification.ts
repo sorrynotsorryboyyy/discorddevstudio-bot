@@ -8,7 +8,7 @@ import {
 import { COLOR_CHALLENGE_PALETTE, CUSTOM_ID } from "../lib/config.js";
 import { brandEmbed, joinLines } from "../lib/embeds.js";
 
-// Composants du message fixe posté dans #verification par /dds setup.
+// Composants du message fixe posté dans #verification par /is setup.
 export function verificationStartComponents() {
   return [
     new ActionRowBuilder<ButtonBuilder>().addComponents(

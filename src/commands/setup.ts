@@ -17,6 +17,7 @@ import {
 import {
   CAT_ARRIVEE,
   CAT_STUDIO,
+  CAT_SERVICES,
   CAT_DISCUSSION,
   CAT_STAFF,
   CHAN_VERIFICATION,
@@ -25,6 +26,7 @@ import {
   CHAN_AVIS,
   CHAN_LOGS_TICKETS,
   CHAN_STAFF_DISCUSSION,
+  CHAN_CREATION_EMBEDS,
   CHAN_GENERAL,
   CHAN_IMAGE,
   CHAN_LASALADE,
@@ -162,7 +164,7 @@ export async function executeSetup(interaction: ChatInputCommandInteraction) {
           joinLines(
             "Il me manque les permissions **Gérer les rôles** et/ou **Gérer les salons** pour configurer le serveur.",
             "",
-            "Ré-invite-moi avec ce lien (permissions à jour), puis relance `/dds setup` :",
+            "Ré-invite-moi avec ce lien (permissions à jour), puis relance `/is setup` :",
             inviteUrl(interaction.client.user.id)
           )
         ),
@@ -170,6 +172,8 @@ export async function executeSetup(interaction: ChatInputCommandInteraction) {
     });
     return;
   }
+
+  await me.setNickname("InstaBot").catch(() => {});
 
   const existingConfig = await getServerConfig();
 
@@ -377,6 +381,7 @@ export async function executeSetup(interaction: ChatInputCommandInteraction) {
 
   const arriveeCategory = await ensureCategory(guild, existingConfig?.channels.arriveeCategoryId, CAT_ARRIVEE, arriveeOverwrites);
   const studioCategory = await ensureCategory(guild, existingConfig?.channels.studioCategoryId, CAT_STUDIO, studioOverwrites);
+  const servicesCategory = await ensureCategory(guild, existingConfig?.channels.servicesCategoryId, CAT_SERVICES, studioOverwrites);
   const discussionCategory = await ensureCategory(
     guild,
     existingConfig?.channels.discussionCategoryId,
@@ -389,8 +394,9 @@ export async function executeSetup(interaction: ChatInputCommandInteraction) {
     .setPositions([
       { channel: arriveeCategory, position: 0 },
       { channel: studioCategory, position: 1 },
-      { channel: discussionCategory, position: 2 },
-      { channel: staffCategory, position: 3 },
+      { channel: servicesCategory, position: 2 },
+      { channel: discussionCategory, position: 3 },
+      { channel: staffCategory, position: 4 },
     ])
     .catch(() => {});
 
@@ -414,7 +420,7 @@ export async function executeSetup(interaction: ChatInputCommandInteraction) {
       guild,
       existingConfig?.channels.catalogueChannels?.[cat.key],
       cat.channel,
-      studioCategory.id,
+      servicesCategory.id,
       studioOverwrites
     );
   }
@@ -430,10 +436,13 @@ export async function executeSetup(interaction: ChatInputCommandInteraction) {
   await guild.channels
     .setPositions([
       { channel: annoncesChannel, position: 0 },
-      ...CATALOGUE_CATEGORIES.map((cat, i) => ({ channel: catalogueChannels[cat.key], position: i + 1 })),
-      { channel: commandeChannel, position: CATALOGUE_CATEGORIES.length + 1 },
-      { channel: avisChannel, position: CATALOGUE_CATEGORIES.length + 2 },
+      { channel: commandeChannel, position: 1 },
+      { channel: avisChannel, position: 2 },
     ])
+    .catch(() => {});
+
+  await guild.channels
+    .setPositions(CATALOGUE_CATEGORIES.map((cat, i) => ({ channel: catalogueChannels[cat.key], position: i })))
     .catch(() => {});
 
   const generalChannel = await ensureChannel(
@@ -479,6 +488,13 @@ export async function executeSetup(interaction: ChatInputCommandInteraction) {
     staffCategory.id,
     staffOverwrites
   );
+  const creationEmbedsChannel = await ensureChannel(
+    guild,
+    existingConfig?.channels.creationEmbedsId,
+    CHAN_CREATION_EMBEDS,
+    staffCategory.id,
+    staffOverwrites
+  );
 
   await updateServerConfig({
     channels: {
@@ -486,6 +502,7 @@ export async function executeSetup(interaction: ChatInputCommandInteraction) {
       verificationId: verificationChannel.id,
       studioCategoryId: studioCategory.id,
       annoncesId: annoncesChannel.id,
+      servicesCategoryId: servicesCategory.id,
       catalogueChannels: Object.fromEntries(CATALOGUE_CATEGORIES.map((cat) => [cat.key, catalogueChannels[cat.key].id])),
       commandeId: commandeChannel.id,
       avisId: avisChannel.id,
@@ -497,6 +514,7 @@ export async function executeSetup(interaction: ChatInputCommandInteraction) {
       staffCategoryId: staffCategory.id,
       logsTicketsId: logsTicketsChannel.id,
       staffDiscussionId: staffDiscussionChannel.id,
+      creationEmbedsId: creationEmbedsChannel.id,
     },
   });
 
@@ -508,7 +526,7 @@ export async function executeSetup(interaction: ChatInputCommandInteraction) {
         .setTitle("🔎 Vérification")
         .setDescription(
           joinLines(
-            "Bienvenue sur **Discord Dev Studio** !",
+            "Bienvenue sur **InstaScript Studio** !",
             "",
             "Clique sur le bouton ci-dessous pour passer une petite vérification anti-bot, puis accepter le règlement. Tu débloqueras ensuite l'accès aux salons du serveur."
           )
@@ -584,7 +602,7 @@ export async function executeSetup(interaction: ChatInputCommandInteraction) {
           joinLines(
             "Retrouve ici les avis laissés par mes clients.",
             "",
-            "➜ Tu as fait appel à mes services ? Laisse ton avis avec la commande `/dds avis`."
+            "➜ Tu as fait appel à mes services ? Laisse ton avis avec la commande `/is avis`."
           )
         ),
     ],
@@ -610,6 +628,20 @@ export async function executeSetup(interaction: ChatInputCommandInteraction) {
     embeds: [brandEmbed().setTitle("🗣️ Discussion Staff").setDescription("Salon privé pour discuter entre modérateurs et admins.")],
   }));
 
+  const creationEmbedsMessageId = await ensureChannelMessage(creationEmbedsChannel, storedMessages.creationEmbedsMessageId, () => ({
+    embeds: [
+      brandEmbed()
+        .setTitle("🖋️ Création d'embeds")
+        .setDescription(
+          joinLines(
+            "Utilise `/is embed create` ici pour poster une fiche produit ou une annonce personnalisée dès qu'un produit est prêt.",
+            "",
+            "➜ Choisis le salon de destination (un salon de services ou #annonces) directement dans la commande."
+          )
+        ),
+    ],
+  }));
+
   await updateServerConfig({
     messages: {
       verificationMessageId,
@@ -622,11 +654,12 @@ export async function executeSetup(interaction: ChatInputCommandInteraction) {
       lasaladeMessageId,
       logsTicketsMessageId,
       staffDiscussionMessageId,
+      creationEmbedsMessageId,
     },
   });
 
   const embed = brandEmbed()
-    .setTitle("✅ Discord Dev Studio est configuré !")
+    .setTitle("✅ InstaScript Studio est configuré !")
     .setDescription(
       joinLines(
         arrow("Vérification", `<#${verificationChannel.id}>`),
@@ -640,6 +673,7 @@ export async function executeSetup(interaction: ChatInputCommandInteraction) {
         arrow("Questions/Aide", `<#${forumAideChannel.id}>`),
         arrow("Logs tickets", `<#${logsTicketsChannel.id}>`),
         arrow("Discussion Staff", `<#${staffDiscussionChannel.id}>`),
+        arrow("Création d'embeds", `<#${creationEmbedsChannel.id}>`),
         "",
         divider("amber"),
         "⚠️ Vérifie que le rôle du bot est bien positionné **au-dessus** de Admin/Modération/Membre/Visiteur dans Paramètres du serveur → Rôles, sinon la gestion des rôles échouera."

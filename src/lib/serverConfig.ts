@@ -16,6 +16,7 @@ export interface ServerConfig {
     verificationId: string;
     studioCategoryId: string;
     annoncesId: string;
+    servicesCategoryId: string;
     catalogueChannels: Partial<Record<CatalogueCategoryKey, string>>;
     commandeId: string;
     avisId: string;
@@ -27,6 +28,7 @@ export interface ServerConfig {
     staffCategoryId: string;
     logsTicketsId: string;
     staffDiscussionId: string;
+    creationEmbedsId: string;
   };
   messages: {
     verificationMessageId?: string;
@@ -39,6 +41,7 @@ export interface ServerConfig {
     lasaladeMessageId?: string;
     logsTicketsMessageId?: string;
     staffDiscussionMessageId?: string;
+    creationEmbedsMessageId?: string;
   };
 }
 

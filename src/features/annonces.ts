@@ -4,6 +4,7 @@ import {
   ButtonStyle,
   MessageFlags,
   type ButtonInteraction,
+  type EmbedBuilder,
   type Guild,
   type GuildMember,
   type TextChannel,
@@ -12,7 +13,28 @@ import { CATALOGUE_CATEGORIES, CUSTOM_ID, type CatalogueCategoryKey } from "../l
 import { arrow, brandEmbed, errorEmbed, joinLines, successEmbed } from "../lib/embeds.js";
 import { getServerConfig, type ServerConfig } from "../lib/serverConfig.js";
 
-// Composants du message fixe posté dans #annonces par /dds setup.
+// Poste un embed dans #annonces (avec ping du rôle Annonces) et l'épingle à
+// la place du précédent, pour que le salon reflète toujours la dernière
+// nouveauté sans avoir à maintenir un message récapitulatif à part.
+export async function postAndPinAnnonce(guild: Guild, config: ServerConfig, embed: EmbedBuilder): Promise<void> {
+  const channel = await guild.channels.fetch(config.channels.annoncesId).catch(() => null);
+  if (!channel?.isTextBased() || channel.isDMBased()) return;
+
+  const sent = await (channel as TextChannel).send({
+    content: `<@&${config.roles.annoncesId}>`,
+    embeds: [embed],
+  });
+
+  const pinned = await (channel as TextChannel).messages.fetchPinned().catch(() => null);
+  if (pinned) {
+    for (const [, message] of pinned) {
+      await message.unpin().catch(() => {});
+    }
+  }
+  await sent.pin().catch(() => {});
+}
+
+// Composants du message fixe posté dans #annonces par /is setup.
 export function annoncesToggleComponents() {
   return [
     new ActionRowBuilder<ButtonBuilder>().addComponents(
@@ -44,18 +66,12 @@ export async function handleAnnoncesToggle(interaction: ButtonInteraction) {
   }
 }
 
-// Poste une annonce dans #annonces (avec ping du rôle Annonces) et épingle le
-// message à la place du précédent, pour que le salon reflète toujours la
-// dernière nouveauté sans avoir à maintenir un message récapitulatif à part.
 export async function announceCatalogueEntry(
   guild: Guild,
   config: ServerConfig,
   kind: "nouveau" | "disponible",
   entry: { name: string; categorie: CatalogueCategoryKey; price: string }
 ): Promise<void> {
-  const channel = await guild.channels.fetch(config.channels.annoncesId).catch(() => null);
-  if (!channel?.isTextBased() || channel.isDMBased()) return;
-
   const category = CATALOGUE_CATEGORIES.find((c) => c.key === entry.categorie);
   const embed = brandEmbed()
     .setTitle(kind === "nouveau" ? "🆕 Nouveauté" : "✅ Maintenant disponible")
@@ -66,17 +82,5 @@ export async function announceCatalogueEntry(
         arrow("Prix", entry.price)
       )
     );
-
-  const sent = await (channel as TextChannel).send({
-    content: `<@&${config.roles.annoncesId}>`,
-    embeds: [embed],
-  });
-
-  const pinned = await (channel as TextChannel).messages.fetchPinned().catch(() => null);
-  if (pinned) {
-    for (const [, message] of pinned) {
-      await message.unpin().catch(() => {});
-    }
-  }
-  await sent.pin().catch(() => {});
+  await postAndPinAnnonce(guild, config, embed);
 }

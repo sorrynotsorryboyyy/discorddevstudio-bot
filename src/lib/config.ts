@@ -1,4 +1,4 @@
-// Noms des rôles créés/gérés par /dds setup
+// Noms des rôles créés/gérés par /is setup
 export const ROLE_VISITEUR = "Visiteur";
 export const ROLE_MEMBRE = "Membre";
 export const ROLE_MODERATION = "Modération";
@@ -6,9 +6,10 @@ export const ROLE_ADMIN = "Admin";
 export const ROLE_ANNONCES = "🔔 Annonces";
 export const ROLE_CLIENT = "🛒 Client";
 
-// Noms des catégories et salons créés par /dds setup
+// Noms des catégories et salons créés par /is setup
 export const CAT_ARRIVEE = "🚪 Arrivée";
-export const CAT_STUDIO = "🏢 Discord Dev Studio";
+export const CAT_STUDIO = "🏢 InstaScript Studio";
+export const CAT_SERVICES = "🛍️ Services";
 export const CAT_DISCUSSION = "💬 Discussion";
 export const CAT_STAFF = "🛠️ Staff";
 
@@ -18,19 +19,21 @@ export const CHAN_COMMANDE = "🎫・passer-commande";
 export const CHAN_AVIS = "⭐・avis-client";
 export const CHAN_LOGS_TICKETS = "📋・logs-tickets";
 export const CHAN_STAFF_DISCUSSION = "🗣️・discussion-staff";
+export const CHAN_CREATION_EMBEDS = "🖋️・creation-embeds";
 export const CHAN_GENERAL = "💬・général";
 export const CHAN_IMAGE = "🖼️・image";
 export const CHAN_LASALADE = "🥗・la-salade";
 export const CHAN_FORUM_AIDE = "❓・questions-aide";
 
 // Catégories du catalogue vendu — chaque catégorie a son propre salon dédié.
-// Pour ajouter une catégorie : ajouter une entrée ici, relancer `/dds setup`
+// Pour ajouter une catégorie : ajouter une entrée ici, relancer `/is setup`
 // (crée le salon) puis `npm run deploy-commands` (met à jour les choix de
-// `/dds catalogue add`).
+// `/is catalogue add`).
 export const CATALOGUE_CATEGORIES = [
   { key: "botdiscord", label: "Bots Discord", emoji: "🤖", channel: "🤖・bots-discord" },
   { key: "minecraft", label: "Minecraft", emoji: "⛏️", channel: "⛏️・minecraft" },
   { key: "web", label: "Web", emoji: "🌐", channel: "🌐・web" },
+  { key: "garrysmod", label: "Garry's Mod", emoji: "🔧", channel: "🔧・garrys-mod" },
 ] as const;
 
 export type CatalogueCategoryKey = (typeof CATALOGUE_CATEGORIES)[number]["key"];

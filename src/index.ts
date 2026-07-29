@@ -29,7 +29,7 @@ client.on(Events.GuildMemberAdd, (member) => {
 
 client.on(Events.InteractionCreate, async (interaction) => {
   try {
-    if (interaction.isChatInputCommand() && interaction.commandName === "dds") {
+    if (interaction.isChatInputCommand() && interaction.commandName === "is") {
       await executeDds(interaction);
       return;
     }

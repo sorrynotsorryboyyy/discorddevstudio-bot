@@ -78,6 +78,7 @@ export const CUSTOM_ID = {
   TICKET_TYPE_SELECT: "ticket:type-select",
   TICKET_CLOSE: "ticket:close",
   TICKET_MARK_CLIENT: "ticket:mark-client",
+  CATALOGUE_BUY_PREFIX: "catalogue:buy:",
   ANNONCES_TOGGLE: "annonces:toggle",
 } as const;
 

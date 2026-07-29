@@ -9,14 +9,77 @@ import {
   PermissionFlagsBits,
   StringSelectMenuBuilder,
   type ButtonInteraction,
+  type Guild,
   type GuildMember,
   type StringSelectMenuInteraction,
   type TextChannel,
+  type User,
 } from "discord.js";
 import { db } from "../lib/firestore.js";
-import { getServerConfig, hasAnyRole } from "../lib/serverConfig.js";
+import { getServerConfig, hasAnyRole, type ServerConfig } from "../lib/serverConfig.js";
 import { CUSTOM_ID, TICKET_TYPES, type TicketTypeKey } from "../lib/config.js";
 import { arrow, brandEmbed, errorEmbed, joinLines, successEmbed } from "../lib/embeds.js";
+
+function sanitizeForChannelName(input: string): string {
+  return input.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 20) || "client";
+}
+
+async function findOpenTicketChannelId(guild: Guild, userId: string): Promise<string | null> {
+  const existing = await db()
+    .collection("tickets")
+    .where("guildId", "==", guild.id)
+    .where("ownerId", "==", userId)
+    .where("status", "==", "open")
+    .limit(1)
+    .get();
+  return existing.empty ? null : (existing.docs[0].data().channelId as string);
+}
+
+async function createTicketChannel(guild: Guild, config: ServerConfig, user: User, channelName: string): Promise<TextChannel> {
+  const botId = guild.members.me!.id;
+  return guild.channels.create({
+    name: channelName,
+    type: ChannelType.GuildText,
+    parent: config.channels.staffCategoryId,
+    permissionOverwrites: [
+      { id: guild.roles.everyone.id, deny: [PermissionFlagsBits.ViewChannel] },
+      {
+        id: config.roles.moderationId,
+        allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory],
+      },
+      {
+        id: config.roles.adminId,
+        allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory],
+      },
+      {
+        id: user.id,
+        allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory],
+      },
+      {
+        id: botId,
+        allow: [
+          PermissionFlagsBits.ViewChannel,
+          PermissionFlagsBits.SendMessages,
+          PermissionFlagsBits.ManageChannels,
+          PermissionFlagsBits.ReadMessageHistory,
+          PermissionFlagsBits.EmbedLinks,
+          PermissionFlagsBits.AttachFiles,
+        ],
+      },
+    ],
+  });
+}
+
+function ticketActionRow() {
+  return new ActionRowBuilder<ButtonBuilder>().addComponents(
+    new ButtonBuilder()
+      .setCustomId(CUSTOM_ID.TICKET_MARK_CLIENT)
+      .setLabel("Marquer comme client")
+      .setEmoji("🛒")
+      .setStyle(ButtonStyle.Success),
+    new ButtonBuilder().setCustomId(CUSTOM_ID.TICKET_CLOSE).setLabel("Fermer le ticket").setEmoji("🔒").setStyle(ButtonStyle.Danger)
+  );
+}
 
 // Composants du message fixe posté dans #passer-commande par /is setup.
 export function commandeComponents() {
@@ -46,10 +109,6 @@ export async function handleTicketOpen(interaction: ButtonInteraction) {
   });
 }
 
-function sanitizeForChannelName(input: string): string {
-  return input.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 20) || "client";
-}
-
 export async function handleTicketTypeSelect(interaction: StringSelectMenuInteraction) {
   const guild = interaction.guild;
   if (!guild) return;
@@ -64,17 +123,10 @@ export async function handleTicketTypeSelect(interaction: StringSelectMenuIntera
     return;
   }
 
-  const existing = await db()
-    .collection("tickets")
-    .where("guildId", "==", guild.id)
-    .where("ownerId", "==", interaction.user.id)
-    .where("status", "==", "open")
-    .limit(1)
-    .get();
-  if (!existing.empty) {
-    const channelId = existing.docs[0].data().channelId as string;
+  const openChannelId = await findOpenTicketChannelId(guild, interaction.user.id);
+  if (openChannelId) {
     await interaction.editReply({
-      embeds: [errorEmbed(`Tu as déjà un ticket ouvert : <#${channelId}>`)],
+      embeds: [errorEmbed(`Tu as déjà un ticket ouvert : <#${openChannelId}>`)],
       components: [],
     });
     return;
@@ -82,39 +134,13 @@ export async function handleTicketTypeSelect(interaction: StringSelectMenuIntera
 
   const typeKey = interaction.values[0] as TicketTypeKey;
   const ticketType = TICKET_TYPES.find((t) => t.key === typeKey)!;
-  const botId = guild.members.me!.id;
 
-  const channel = await guild.channels.create({
-    name: `🎫・${ticketType.key}-${sanitizeForChannelName(interaction.user.username)}`,
-    type: ChannelType.GuildText,
-    parent: config.channels.staffCategoryId,
-    permissionOverwrites: [
-      { id: guild.roles.everyone.id, deny: [PermissionFlagsBits.ViewChannel] },
-      {
-        id: config.roles.moderationId,
-        allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory],
-      },
-      {
-        id: config.roles.adminId,
-        allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory],
-      },
-      {
-        id: interaction.user.id,
-        allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory],
-      },
-      {
-        id: botId,
-        allow: [
-          PermissionFlagsBits.ViewChannel,
-          PermissionFlagsBits.SendMessages,
-          PermissionFlagsBits.ManageChannels,
-          PermissionFlagsBits.ReadMessageHistory,
-          PermissionFlagsBits.EmbedLinks,
-          PermissionFlagsBits.AttachFiles,
-        ],
-      },
-    ],
-  });
+  const channel = await createTicketChannel(
+    guild,
+    config,
+    interaction.user,
+    `🎫・${ticketType.key}-${sanitizeForChannelName(interaction.user.username)}`
+  );
 
   await channel.send({
     embeds: [
@@ -129,20 +155,7 @@ export async function handleTicketTypeSelect(interaction: StringSelectMenuIntera
           )
         ),
     ],
-    components: [
-      new ActionRowBuilder<ButtonBuilder>().addComponents(
-        new ButtonBuilder()
-          .setCustomId(CUSTOM_ID.TICKET_MARK_CLIENT)
-          .setLabel("Marquer comme client")
-          .setEmoji("🛒")
-          .setStyle(ButtonStyle.Success),
-        new ButtonBuilder()
-          .setCustomId(CUSTOM_ID.TICKET_CLOSE)
-          .setLabel("Fermer le ticket")
-          .setEmoji("🔒")
-          .setStyle(ButtonStyle.Danger)
-      ),
-    ],
+    components: [ticketActionRow()],
   });
 
   await db().collection("tickets").add({
@@ -159,6 +172,64 @@ export async function handleTicketTypeSelect(interaction: StringSelectMenuIntera
     embeds: [successEmbed(`Ticket créé : <#${channel.id}>`)],
     components: [],
   });
+}
+
+export async function handleCatalogueBuyClick(interaction: ButtonInteraction) {
+  const guild = interaction.guild;
+  if (!guild) return;
+
+  const docId = interaction.customId.slice(CUSTOM_ID.CATALOGUE_BUY_PREFIX.length);
+  const doc = await db().collection("catalogue").doc(docId).get();
+  if (!doc.exists) {
+    await interaction.reply({ embeds: [errorEmbed("Ce produit n'existe plus.")], flags: MessageFlags.Ephemeral });
+    return;
+  }
+  const produit = doc.data()!.name as string;
+
+  await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+
+  const config = await getServerConfig();
+  if (!config) {
+    await interaction.editReply({ embeds: [errorEmbed("Le serveur n'est pas encore configuré (`/is setup` manquant).")] });
+    return;
+  }
+
+  const openChannelId = await findOpenTicketChannelId(guild, interaction.user.id);
+  if (openChannelId) {
+    await interaction.editReply({ embeds: [errorEmbed(`Tu as déjà un ticket ouvert : <#${openChannelId}>`)] });
+    return;
+  }
+
+  const channel = await createTicketChannel(guild, config, interaction.user, `🎫・achat-${sanitizeForChannelName(interaction.user.username)}`);
+
+  await channel.send({
+    embeds: [
+      brandEmbed()
+        .setTitle("🔒 Achat de l'exclusivité")
+        .setDescription(
+          joinLines(
+            `Bienvenue <@${interaction.user.id}> !`,
+            `Tu souhaites acheter l'exclusivité de **${produit}**.`,
+            "",
+            "➜ Le staff va te répondre au plus vite pour finaliser l'achat."
+          )
+        ),
+    ],
+    components: [ticketActionRow()],
+  });
+
+  await db().collection("tickets").add({
+    guildId: guild.id,
+    type: "commande",
+    produit,
+    ownerId: interaction.user.id,
+    ownerTag: interaction.user.tag,
+    channelId: channel.id,
+    status: "open",
+    createdAt: FieldValue.serverTimestamp(),
+  });
+
+  await interaction.editReply({ embeds: [successEmbed(`Ticket créé : <#${channel.id}>`)] });
 }
 
 export async function handleTicketClose(interaction: ButtonInteraction) {

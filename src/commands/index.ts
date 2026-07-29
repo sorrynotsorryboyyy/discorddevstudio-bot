@@ -41,7 +41,8 @@ export const ddsCommand = new SlashCommandBuilder()
           .addStringOption((opt) => opt.setName("description").setDescription("Description du bot").setRequired(true))
           .addStringOption((opt) => opt.setName("prix").setDescription("Prix (ex: 49 €, sur devis...)").setRequired(true))
           .addAttachmentOption((opt) => opt.setName("image").setDescription("Image/aperçu du bot"))
-          .addBooleanOption((opt) => opt.setName("exclusif").setDescription("Vendu uniquement sur ce Discord ?"))
+          .addBooleanOption((opt) => opt.setName("exclusif").setDescription("Vendu uniquement sur ce Discord ? (bouton « Acheter l'exclusivité » → ticket)"))
+          .addStringOption((opt) => opt.setName("lien").setDescription("Lien marketplace (si pas exclusif) → bouton « Acheter »"))
           .addStringOption((opt) =>
             opt
               .setName("statut")
@@ -57,7 +58,8 @@ export const ddsCommand = new SlashCommandBuilder()
           .addStringOption((opt) => opt.setName("description").setDescription("Nouvelle description"))
           .addStringOption((opt) => opt.setName("prix").setDescription("Nouveau prix"))
           .addAttachmentOption((opt) => opt.setName("image").setDescription("Nouvelle image"))
-          .addBooleanOption((opt) => opt.setName("exclusif").setDescription("Vendu uniquement sur ce Discord ?"))
+          .addBooleanOption((opt) => opt.setName("exclusif").setDescription("Vendu uniquement sur ce Discord ? (bouton « Acheter l'exclusivité » → ticket)"))
+          .addStringOption((opt) => opt.setName("lien").setDescription("Lien marketplace (si pas exclusif) → bouton « Acheter »"))
           .addStringOption((opt) =>
             opt
               .setName("statut")

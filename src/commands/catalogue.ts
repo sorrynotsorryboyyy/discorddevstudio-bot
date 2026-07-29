@@ -1,8 +1,16 @@
 import { FieldValue } from "firebase-admin/firestore";
-import { MessageFlags, PermissionFlagsBits, type ChatInputCommandInteraction, type TextChannel } from "discord.js";
+import {
+  ActionRowBuilder,
+  ButtonBuilder,
+  ButtonStyle,
+  MessageFlags,
+  PermissionFlagsBits,
+  type ChatInputCommandInteraction,
+  type TextChannel,
+} from "discord.js";
 import { db } from "../lib/firestore.js";
 import { getServerConfig } from "../lib/serverConfig.js";
-import { CATALOGUE_CATEGORIES, CATALOGUE_STATUTS, type CatalogueCategoryKey, type CatalogueStatutKey } from "../lib/config.js";
+import { CATALOGUE_CATEGORIES, CATALOGUE_STATUTS, CUSTOM_ID, type CatalogueCategoryKey, type CatalogueStatutKey } from "../lib/config.js";
 import { arrow, brandEmbed, errorEmbed, joinLines, successEmbed } from "../lib/embeds.js";
 import { announceCatalogueEntry } from "../features/annonces.js";
 
@@ -12,6 +20,7 @@ interface CatalogueEntry {
   description: string;
   price: string;
   imageUrl?: string;
+  lien?: string;
   exclusifDiscord: boolean;
   statut: CatalogueStatutKey;
   messageId?: string;
@@ -50,19 +59,42 @@ function catalogueEmbed(entry: CatalogueEntry) {
   return embed;
 }
 
+function catalogueButtons(entry: CatalogueEntry, docId: string): ActionRowBuilder<ButtonBuilder>[] {
+  if (entry.exclusifDiscord) {
+    return [
+      new ActionRowBuilder<ButtonBuilder>().addComponents(
+        new ButtonBuilder()
+          .setCustomId(`${CUSTOM_ID.CATALOGUE_BUY_PREFIX}${docId}`)
+          .setLabel("Acheter l'exclusivité")
+          .setEmoji("🔒")
+          .setStyle(ButtonStyle.Success)
+      ),
+    ];
+  }
+  if (entry.lien) {
+    return [
+      new ActionRowBuilder<ButtonBuilder>().addComponents(
+        new ButtonBuilder().setLabel("Acheter").setEmoji("🛒").setStyle(ButtonStyle.Link).setURL(entry.lien)
+      ),
+    ];
+  }
+  return [];
+}
+
 async function postOrUpdateEntry(
   channel: TextChannel,
   docRef: FirebaseFirestore.DocumentReference,
   entry: CatalogueEntry
 ): Promise<void> {
+  const components = catalogueButtons(entry, docRef.id);
   if (entry.messageId) {
     const message = await channel.messages.fetch(entry.messageId).catch(() => null);
     if (message) {
-      await message.edit({ embeds: [catalogueEmbed(entry)] });
+      await message.edit({ embeds: [catalogueEmbed(entry)], components });
       return;
     }
   }
-  const sent = await channel.send({ embeds: [catalogueEmbed(entry)] });
+  const sent = await channel.send({ embeds: [catalogueEmbed(entry)], components });
   await docRef.update({ messageId: sent.id });
 }
 
@@ -122,6 +154,7 @@ export async function executeCatalogue(interaction: ChatInputCommandInteraction)
       description: interaction.options.getString("description", true),
       price: interaction.options.getString("prix", true),
       imageUrl: interaction.options.getAttachment("image")?.url,
+      lien: interaction.options.getString("lien") ?? undefined,
       exclusifDiscord: interaction.options.getBoolean("exclusif") ?? false,
       statut: (interaction.options.getString("statut") as CatalogueStatutKey | null) ?? "disponible",
     };
@@ -162,6 +195,7 @@ export async function executeCatalogue(interaction: ChatInputCommandInteraction)
     const description = interaction.options.getString("description");
     const prix = interaction.options.getString("prix");
     const image = interaction.options.getAttachment("image");
+    const lien = interaction.options.getString("lien");
     const exclusif = interaction.options.getBoolean("exclusif");
     const statut = interaction.options.getString("statut") as CatalogueStatutKey | null;
 
@@ -170,6 +204,7 @@ export async function executeCatalogue(interaction: ChatInputCommandInteraction)
       description: description ?? current.description,
       price: prix ?? current.price,
       imageUrl: image?.url ?? current.imageUrl,
+      lien: lien ?? current.lien,
       exclusifDiscord: exclusif ?? current.exclusifDiscord,
       statut: statut ?? current.statut,
     };
